@@ -1,0 +1,322 @@
+# PS 1 - Simulation
+
+# Q1
+import numpy as np
+import matplotlib.pyplot as plt
+import random
+
+def analyze_system(r, n_steps):
+    a = [round(random.uniform(0.5, 1), 1)]
+    for i in range(n_steps - 1):
+        a.append(round(a[-1] * (r**i), 2))
+    return a
+
+n_steps = 100
+print("No of steps:", n_steps)
+option = int(input("Enter the option: 1) r=0 2) 0<r<1 3) -1<r<0 4) -1<r<-1\n"))
+
+plt.figure(figsize=(10, 6))
+plt.xlabel("Step")
+plt.ylabel("Value")
+plt.title(f"System Analysis for different r values")
+plt.grid(True)
+
+if option == 1:
+    # (i)
+    print("r:0")
+    a = analyze_system(0, n_steps)
+    plt.plot(a, label=f'r = 0')
+elif option == 2:
+    # (ii)
+    random_values = [round(random.random(), 2) for _ in range(100)]
+    for r in random_values:
+        print("r:", r)
+        a = analyze_system(r, n_steps)
+        plt.plot(a, label=f'r = {r}')
+elif option == 3:
+    #   (iii)
+    random_values = [round(random.uniform(-1, 0), 2) for _ in range(100)]
+    for r in random_values:
+        print("r:", r)
+        a = analyze_system(r, n_steps)
+        plt.plot(a, label=f'r = {r}')
+elif option == 4:
+    # (iv)
+    random_values = [round(random.uniform(-1, 1), 2) for _ in range(100)]
+    for r in random_values:
+        print("r:", r)
+        a = analyze_system(r, n_steps)
+        plt.plot(a, label=f'r = {r}')
+else:
+    print("Invalid Option!")
+
+#plt.legend()
+plt.show()
+
+# Q2
+import matplotlib.pyplot as plt
+
+def digoxin_decay(r, initial_dosage, daily_dosage, n_steps=20):
+    a = [initial_dosage]
+    for _ in range(n_steps - 1):
+        a.append(round(r * a[-1] + daily_dosage,3
+        ))
+    print(a)
+
+    plt.plot(a)
+    plt.xlabel("Dosage Period")
+    plt.ylabel("Digoxin Concentration (mg)")
+    plt.title(f"Digoxin Decay with Daily Dosage of {daily_dosage} mg")
+    plt.grid(True)
+    plt.show()
+
+#  r = 0.5 since amount of digoxin at the end of the dosage is half
+r = 0.5
+
+# (i)
+digoxin_decay(r=r, initial_dosage=0, daily_dosage=0.1)
+
+# (ii)
+digoxin_decay(r=r, initial_dosage=0, daily_dosage=0.2)
+
+# (iii)
+digoxin_decay(r=r, initial_dosage=0, daily_dosage=0.3)
+
+# Q3
+import numpy as np
+import matplotlib.pyplot as plt
+
+sample_sizes = [500, 1000, 10000, 100000]
+
+distributions = {
+    "Uniform": lambda size: np.random.uniform(0, 1, size),
+    "Exponential": lambda size: np.random.exponential(1, size),
+    "Weibull": lambda size: np.random.weibull(5, size), #k=5 shape parameter
+    "Triangular": lambda size: np.random.triangular(0, 0.5, 1, size) # left=0, mode=0.5, right=1
+}
+
+for dist_name, distribution_func in distributions.items():
+    for size in sample_sizes:
+        data = distribution_func(size)
+
+        plt.figure(figsize=(10, 6))
+        counts, bins, patches = plt.hist(data, bins=50, density=True, alpha=0.7, label='Histogram')
+
+        bin_centers = 0.5 * (bins[:-1] + bins[1:])
+
+        plt.plot(bin_centers, counts, '-o', color='red', label='Frequency Polygon')
+
+        plt.title(f'{dist_name} Distribution and Sample Size: {size}')
+        plt.xlabel('Value')
+        plt.ylabel('Frequency')
+        plt.legend()
+        plt.grid(True)
+        plt.show()
+
+# Q4
+import random
+import matplotlib.pyplot as plt
+
+def estimate_pi(num_points):
+
+    points_inside_circle = 0
+    x_inside = []
+    y_inside = []
+    x_outside = []
+    y_outside = []
+
+    for _ in range(num_points):
+        x = random.uniform(0, 1)
+        y = random.uniform(0, 1)
+        dist_from_origin = x**2 + y**2
+
+        if dist_from_origin <= 1:
+            points_inside_circle += 1
+            x_inside.append(x)
+            y_inside.append(y)
+        else:
+            x_outside.append(x)
+            y_outside.append(y)
+
+    estimated_pi = 4 * points_inside_circle / num_points
+
+    # Plotting the points
+    plt.figure(figsize=(6, 6))
+    plt.scatter(x_inside, y_inside, color='blue', s=1, label='Inside Circle')
+    plt.scatter(x_outside, y_outside, color='red', s=1, label='Outside Circle')
+    plt.title(f'Monte Carlo Simulation for Pi Estimation')
+    plt.xlabel('x')
+    plt.ylabel('y')
+    plt.gca().set_aspect('equal', adjustable='box')
+    plt.legend()
+    plt.grid(True)
+    plt.show()
+
+    return estimated_pi
+
+num_points = 10000
+estimated_value_of_pi = estimate_pi(num_points)
+print(f"Estimated value of Pi using {num_points} points: {estimated_value_of_pi}")
+
+# Q5
+import numpy as np
+import random
+import matplotlib.pyplot as plt
+
+days_list = [200, 500, 1000, 10000]
+cost_price = 0.30
+selling_price = 0.45
+scrap_price = 0.05
+supply = random.randint(30, 100)
+average_profits = []
+demand_values = [40, 50, 60, 70, 80, 90, 100]
+news_type_prob = [0.35, 0.45, 0.20]
+news_types = ["Good", "Fair", "Poor"]
+digit_for_demand = {
+    "Good": [(1,3), (4,8), (9,23), (24,43), (44,78), (79,93), (94,100)],
+    "Fair": [(1,10), (11,28), (29,68), (69,88), (89,96), (97,100), (0,0)],
+    "Poor": [(1,44), (45,66), (67,82), (83,94), (95,100), (0,0), (0,0)]
+}
+
+def map(news_type, rand_digit):
+    ranges = digit_for_demand[news_type]
+
+    for i, (low, high) in enumerate(ranges):
+        if low <= rand_digit <= high:
+            return demand_values[i]
+    return 40
+
+def simulateForDays(days):
+    np.random.seed(50)
+    results = {
+        "Revenue": [],
+        "Loss of profit": [],
+        "Salvage": [],
+        "Daily profit": []
+    }
+
+    mean, sd = 50, 10
+    for _ in range(days):
+        rand_news = np.random.uniform(0, 100)
+        if rand_news <= 35:
+            news_type = "Good"
+        elif rand_news > 35 and rand_news <= 80:
+            news_type = "Fair"
+        else:
+            news_type = "Poor"
+
+        if news_type == "Good":
+            rand_digits = int(np.clip(np.random.exponential(scale = mean), 1, 100))
+        elif news_type == "Fair":
+            rand_digits = int(np.clip(np.random.normal(loc = mean, scale = sd), 1, 100))
+        else:
+            rand_digits = int(np.clip(np.random.poisson(lam = mean), 1, 100))
+
+        demand = map(news_type, rand_digits)
+
+        sales = min(supply , demand)
+        revenue = sales * selling_price
+
+        excess_demand = max(demand - supply, 0)
+        loss_of_profit = excess_demand * (selling_price - cost_price)
+
+        unsold = max(supply - demand, 0)
+        salvage = unsold * scrap_price
+
+        cost = supply * cost_price
+        profit = revenue + salvage - cost - loss_of_profit
+
+        results['Revenue'].append(revenue)
+        results['Loss of profit'].append(loss_of_profit)
+        results['Salvage'].append(salvage)
+        results['Daily profit'].append(profit)
+
+    return results
+
+
+for days in days_list:
+    temp = simulateForDays(days)
+    average_profits.append(np.mean(temp["Daily profit"]))
+
+    plt.figure(figsize=(16, 5))
+    for i, metric in enumerate(["Revenue", "Daily profit"], 1):
+        plt.subplot(1, 2, i)
+        plt.hist(temp[metric], bins=30, color='blue', edgecolor='black') #, alpha=0.7)
+        plt.title(f'{metric} over {days} days')
+        plt.xlabel(metric)
+        plt.ylabel('Frequency')
+
+    plt.tight_layout(rect=[0, 0, 1, 0.95])
+    plt.show()
+
+plt.plot(days_list, average_profits, marker='o', linestyle='-', color='green')
+plt.title('Average daily profit for the given days')
+plt.xlabel('No of days')
+plt.ylabel('Avg. daily profit')
+plt.show()
+
+# Q6
+import numpy as np
+import pandas as pd
+import matplotlib.pyplot as plt
+
+np.random.seed(42)
+simulate = 1000
+arrival_rate = 1/10
+mean_service_time = 10
+num_customers = 0
+arrival_times = []
+service_start_times = []
+service_end_times = []
+waiting_times = []
+service_times = []
+
+current_time = 0
+next_arrival = np.random.exponential(scale=1/arrival_rate)
+next_free_time = 0
+
+while next_arrival < simulate:
+    arrival_time = next_arrival
+    service_time = np.clip(np.random.poisson(mean_service_time), 8, 12)
+
+    start_service = max(arrival_time, next_free_time)
+    end_service = start_service + service_time
+
+    waiting_time = start_service - arrival_time
+    next_free_time = end_service
+    next_arrival = arrival_time + np.random.exponential(scale=1/arrival_rate)
+
+    arrival_times.append(arrival_time)
+    service_start_times.append(start_service)
+    service_end_times.append(end_service)
+    waiting_times.append(waiting_time)
+    service_times.append(service_time)
+    num_customers += 1
+
+df = pd.DataFrame({
+    "Arrival": arrival_times,
+    "Start": service_start_times,
+    "End": service_end_times,
+    "Wait": waiting_times,
+    "Service Time": service_times
+})
+
+avg_wait = df["Wait"].mean()
+avg_customers_waiting = np.mean([np.sum((df["Arrival"] <= t) & (df["Start"] > t)) for t in np.arange(0, simulate)])
+utilization = df["Service Time"].sum() / simulate
+
+print(f"The total customers served: {num_customers}")
+print(f"The average waiting time in queue: {avg_wait:.2f} mins")
+print(f"The average number of customers waiting: {avg_customers_waiting:.2f}")
+print(f"The utilization of the booking station: {utilization*100:.2f}%")
+
+
+plt.figure(figsize=(12, 5))
+plt.step(df["Arrival"], np.arange(1, len(df)+1) ,label='Cumulative Arrivals')
+plt.step(df["End"], np.arange(1, len(df)+1), label='Cumulative Completions')
+plt.xlabel("Time")
+plt.ylabel("Number of Customers")
+plt.title("Path of Queueing System")
+plt.legend()
+plt.show()
+

@@ -1,0 +1,273 @@
+# PS 4 - Differential Equations (Euler, RK, MilneThomson, MonteCarlo)
+
+import numpy as np
+import numpy as np
+import matplotlib.pyplot as plt
+from scipy.stats import t
+
+# Differential equation: y' = -2y
+def diffEq(x, y):
+    return -2 * y
+
+# Euler method
+def euler(f, x0, y0, h, n):
+    Y = np.zeros(n+1)
+    X = np.linspace(x0, x0 + n*h, n+1)
+    Y[0] = y0
+    for i in range(n):
+        Y[i+1] = Y[i] + h * f(X[i], Y[i])
+    return X, Y
+
+# RK4 method
+def rk4(f, x0, Y0, h, n):
+  Y = np.zeros(n+1)
+  X = np.linspace(x0, x0 + n*h, n+1)
+  Y[0] = Y0
+  for i in range(n):
+    k1 = h * f(X[i], Y[i])
+    k2 = h * f(X[i] + h/2, Y[i] + k1/2)
+    k3 = h * f(X[i] + h/2, Y[i] + k2/2)
+    k4 = h * f(X[i] + h, Y[i] + k3)
+    Y[i+1] = Y[i] + ((k1 + 2*k2 + 2*k3 + k4) / 6)
+  return X, Y
+
+# Milne–Thomson method
+def milne_thomson(f, x0, y0, h, n):
+    Y = np.zeros(n+1)
+    X = np.linspace(x0, x0 + n*h, n+1)
+
+    # First 4 values using RK4
+    X_rk, Y_rk = rk4(f, x0, y0, h, 3)
+    Y[:4] = Y_rk[:4]
+
+    for i in range(3, n):
+        f_i_minus3 = f(X[i-3], Y[i-3])
+        f_i_minus2 = f(X[i-2], Y[i-2])
+        f_i_minus1 = f(X[i-1], Y[i-1])
+        f_i = f(X[i], Y[i])
+
+        # Predictor
+        Y_pred = Y[i-3] + (4*h/3) * (2*f_i_minus2 - f_i_minus1 + 2*f_i)
+
+        # Corrector
+        f_pred = f(X[i+1], Y_pred)
+        Y[i+1] = Y[i-1] + (h/3) * (f_i_minus1 + 4*f_i + f_pred)
+
+    return X, Y
+
+# Monte Carlo method (stochastic Euler sampling)
+def monte_carlo(f, x0, y0, h, n, samples=5000):
+    X = np.linspace(x0, x0 + n*h, n+1)
+    Y = np.zeros(n+1)
+    Y[0] = y0
+
+    for i in range(n):
+        outcomes = []
+        for j in range(samples):
+            xi = np.random.uniform(X[i], X[i] + h)  # random point in interval
+            yi = Y[i] + h * f(xi, Y[i])            # Euler-like step
+            outcomes.append(yi)
+        Y[i+1] = np.mean(outcomes)  # expectation value
+    return X, Y
+
+# Lagrange interpolation
+def lagrange_basis(x, x_points, i):
+    n = len(x_points) - 1
+    li = 1.0
+    for j in range(n+1):
+        if i != j:
+            li *= (x - x_points[j]) / (x_points[i] - x_points[j])
+    return li
+
+def lagrange_interpolation(x, x_points, y_points):
+    n = len(x_points) - 1
+    p_x = 0.0
+    for i in range(n+1):
+        p_x += y_points[i] * lagrange_basis(x, x_points, i)
+    return p_x
+
+def create_interpolation(x_vals, y_vals, num_points=200):
+    x_dense = np.linspace(min(x_vals), max(x_vals), num_points)
+    y_dense = np.array([lagrange_interpolation(xi, x_vals, y_vals) for xi in x_dense])
+
+    coefficients = np.polyfit(x_vals, y_vals, len(x_vals)-1)
+    poly_str = "P(x) = "
+    for i, coef in enumerate(coefficients):
+        power = len(coefficients) - i - 1
+        if power == 0:
+            poly_str += f"{coef:.4f}"
+        else:
+            poly_str += f"{coef:.4f}x^{power} + "
+    return x_dense, y_dense, poly_str
+
+# Analytical solution
+def y_analytical(x, y0):
+    return y0 * np.exp(-2 * x)
+
+# Parameters
+x0 = 0
+y0 = 1.0
+h = 0.1
+n = 14
+
+# Run methods
+x_e, y_euler = euler(diffEq, x0, y0, h, n)
+x_rk, y_rk = rk4(diffEq, x0, y0, h, n)
+x_milne, y_milne = milne_thomson(diffEq, x0, y0, h, n)
+x_mc, y_mc = monte_carlo(diffEq, x0, y0, h, n)
+y_true = y_analytical(x_e, y0)
+
+# Interpolations
+x_euler_dense, y_euler_interp, euler_poly = create_interpolation(x_e, y_euler)
+x_rk_dense, y_rk_interp, rk4_poly = create_interpolation(x_rk, y_rk)
+x_milne_dense, y_milne_interp, milne_poly = create_interpolation(x_milne, y_milne)
+x_mc_dense, y_mc_interp, mc_poly = create_interpolation(x_mc, y_mc)
+
+# Print interpolation polynomials
+print("\nLagrange Interpolation Polynomials")
+print("=================================")
+print("Euler Method:")
+print(euler_poly)
+print("\nRK4 Method:")
+print(rk4_poly)
+print("\nMilne-Thomson Method:")
+print(milne_poly)
+print("\nMonte Carlo Method:")
+print(mc_poly)
+
+# Plot
+plt.figure(figsize=(12, 6))
+plt.plot(x_e, y_true, 'k-', label='Analytical')
+plt.plot(x_e, y_euler, 'ro--', label='Euler')
+plt.plot(x_rk, y_rk, 'go-', label='RK4')
+plt.plot(x_milne, y_milne, 'bo-.', label='Milne-Thomson')
+plt.plot(x_mc, y_mc, 'mo:', label='Monte Carlo')
+plt.title("Comparison of Numerical Methods with Analytical Solution")
+plt.xlabel('x')
+plt.ylabel('y')
+plt.legend()
+plt.grid(True)
+plt.show()
+
+def t_test(y_true, y_method):
+    d = y_true - y_method
+    n = len(d)
+    mean_d = np.mean(d)
+    sd_d = np.std(d, ddof=1)
+
+    # t-statistic
+    t_stat = mean_d / (sd_d / np.sqrt(n))
+
+    # degrees of freedom
+    df = n - 1
+
+    # two-tailed p-value from t-distribution
+    p_value = 2 * (1 - t.cdf(abs(t_stat), df))
+
+    return t_stat, p_value
+
+t1, p1 = t_test(y_true, y_euler)
+t2, p2 = t_test(y_true, y_rk)
+t3, p3 = t_test(y_true, y_milne)
+t4, p4 = t_test(y_true, y_mc)
+
+print("\nt-test results")
+print("----------------------")
+print(f"Euler:       t = {t1:.5f}, p = {p1:.6e}")
+print(f"RK4:         t = {t2:.5f}, p = {p2:.6e}")
+print(f"Milne:       t = {t3:.5f}, p = {p3:.6e}")
+print(f"Monte Carlo: t = {t4:.5f}, p = {p4:.6e}")
+
+alpha = 0.05
+l1 = [p1, p2, p3, p4]
+
+for i, p in enumerate(l1, start=1):
+    if p < alpha:
+        print(f"p{i} = {p:.6e} -> Reject H0 (significant difference)")
+    else:
+        print(f"p{i} = {p:.6e} -> Fail to reject H0 (no significant difference)")
+
+# Solutions table
+print("\nSolutions")
+print("---------------------------------------------------------------------------------")
+print(f"{'x':>6} | {'Euler':>10} | {'RK4':>10} | {'Milne':>10} | {'MonteCarlo':>12} | {'Analytical':>12}")
+print("---------------------------------------------------------------------------------")
+for i in range(n+1):
+    print(f"{x_e[i]:6.2f} | {y_euler[i]:10.6f} | {y_rk[i]:10.6f} | {y_milne[i]:10.6f} | {y_mc[i]:12.6f} | {y_true[i]:12.6f}")
+
+
+
+
+# TO SOLVE DIFFERENTIAL EQUATIONS
+
+from sympy import Function, dsolve, Derivative, Eq, symbols, lambdify, integrate
+import matplotlib.pyplot as plt
+
+def f(x, y):
+    return ((x**2) * y)
+
+def f2(x):
+  x_sym = symbols('x')
+  y_sym = Function('y')
+  ode = Eq(Derivative(y_sym(x_sym), x_sym), f(x_sym, y_sym(x_sym)))
+  ics = {y_sym(0): 1}
+  sol = dsolve(ode, y_sym(x_sym), ics=ics)
+  y_analytical_expr = sol.rhs
+  y_analytical = lambdify(x_sym, y_analytical_expr, 'numpy')
+  return y_analytical(x)
+
+# Euler method
+def euler(f, x0, y0, h, n):
+    Y = np.zeros(n+1)
+    X = np.linspace(x0, x0 + n*h, n+1)
+    Y[0] = y0
+    for i in range(n):
+        Y[i+1] = Y[i] + h * f(X[i], Y[i])
+    return X, Y
+
+x0, y0 = 0, 1
+n = 15
+h= 0.05
+
+# Euler method
+x_euler, y_euler = euler(f, x0, y0, h, n)
+y_values = f2(x_euler)
+
+plt.plot(x_euler,y_values,label='Analytical Solution',linestyle='dashed',color='green')
+
+
+
+
+# GIVES SOLVED POLYNOMIAL
+
+# first order de
+from sympy import symbols, Function, dsolve, Eq, exp
+
+x = symbols('x')
+y0 = 1
+y = Function('y')(x)
+
+# Define your ODE
+def y_dash(x, y): 
+    return ((x**2) * y)
+
+# Solve symbolically
+ode = Eq(y.diff(x), y_dash(x, y))
+sol = dsolve(ode, y, ics={y.subs(x,0): y0})
+print(sol)  
+
+# second order de
+from sympy import symbols, Function, dsolve, Eq
+
+x = symbols('x')
+y = Function('y')(x)
+
+# Define the ODE
+# Example: y'' = 2*x**2 + y  -> rewrite as y'' - y = 2*x**2
+ode = Eq(y.diff(x,2) - y, 2*x**2)
+
+# Solve analytically
+sol = dsolve(ode, y)
+print(sol)
+
+

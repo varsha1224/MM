@@ -1,0 +1,103 @@
+# Linear Regression
+import numpy as np
+from scipy.stats import t as t_dist   # only used to get p-value from t-distribution
+
+def linear_regression_from_sums(x, y, alpha=0.05):
+    """
+    Fit y = a + b x using raw-sum formulas (no mean-based shortcuts).
+    Returns: a, b, SE_b, t_stat, p_value, residuals
+    """
+    x = np.asarray(x, dtype=float)
+    y = np.asarray(y, dtype=float)
+    n = len(x)
+    if n < 3:
+        raise ValueError("Need at least 3 points for slope test (n-2 df).")
+
+    Sx  = x.sum()
+    Sy  = y.sum()
+    Sxx = (x**2).sum()          # sum x^2
+    Sxy = (x * y).sum()         # sum x*y
+    Syy = (y**2).sum()          # sum y^2
+
+    D = n * Sxx - Sx**2         # denominator
+
+    # slope and intercept (raw-sum formulas)
+    b = (n * Sxy - Sx * Sy) / D
+    a = (Sy * Sxx - Sx * Sxy) / D
+
+    # fitted values and residuals
+    y_hat = a + b * x
+    residuals = y - y_hat
+
+    # residual sum of squares and estimate of variance
+    SSE = np.sum(residuals**2)
+    s2 = SSE / (n - 2)          # unbiased estimate of variance
+
+    # variance of slope: Var(b) = s^2 / Sxx_centered
+    Sxx_centered = Sxx - (Sx**2) / n   # = sum (x - xbar)^2
+    SE_b = np.sqrt(s2 / Sxx_centered)
+
+    # t-statistic and two-tailed p-value for H0: b = 0
+    t_stat = b / SE_b
+    p_value = 2 * t_dist.sf(abs(t_stat), df=n-2)   # survival function is numerically stable
+
+    return {
+        "a": a,
+        "b": b,
+        "SE_b": SE_b,
+        "t_stat": t_stat,
+        "p_value": p_value,
+        "residuals": residuals,
+        "SSE": SSE,
+        "s2": s2
+    }
+
+if __name__ == "__main__":
+    x = np.array([10,20,30,40,50,60,70,80,90])
+    y = np.array([19,57,94,134,173,216,256,297,343])
+
+    res = linear_regression_from_sums(x, y)
+    print(f"a (intercept) = {res['a']:.6f}")
+    print(f"b (slope)     = {res['b']:.6f}")
+    print(f"SE(b)         = {res['SE_b']:.6f}")
+    print(f"t_stat        = {res['t_stat']:.6f}")
+    print(f"p_value       = {res['p_value']:.6e}")
+    print(f"SSE           = {res['SSE']:.6f}")
+    print(f"s^2 (sigma^2) = {res['s2']:.6f}")
+
+
+# Quadratic
+def quadratic_regression(x, y):
+    # Design matrix with [1, x, x^2]
+    X = np.column_stack([np.ones(len(x)), x, x**2])
+    beta = np.linalg.inv(X.T @ X) @ (X.T @ y)
+    a, b, c = beta
+    return a, b, c
+
+
+# Multiple
+from scipy.stats import f
+
+def multiple_regression(X, y, alpha=0.05):
+    n, p = X.shape
+    X_design = np.column_stack([np.ones(n), X])  # add intercept
+    
+    # beta = (X'X)^-1 X'y
+    beta = np.linalg.inv(X_design.T @ X_design) @ (X_design.T @ y)
+    y_hat = X_design @ beta
+    residuals = y - y_hat
+    
+    # sums of squares
+    y_mean = np.mean(y)
+    SSR = np.sum((y_hat - y_mean)**2)
+    SSE = np.sum((y - y_hat)**2)
+    SST = np.sum((y - y_mean)**2)
+    
+    # F-test for overall significance
+    MSR = SSR / p
+    MSE = SSE / (n - p - 1)
+    F_stat = MSR / MSE
+    p_val = 1 - f.cdf(F_stat, p, n - p - 1)
+    
+    return beta, F_stat, p_val
+

@@ -1,0 +1,181 @@
+# PS 4 - Integration (Simpson, Trapezoidal)
+
+# Q1 Oscillations - Construct polynomial p2N(x) and plot
+
+import numpy as np
+import matplotlib.pyplot as plt
+
+N_values = [2, 4, 6, 8, 12, 20]
+
+plt.figure(figsize=(15, 10))
+
+def lagrange_interpolation(x_points, y_points, x):
+    n = len(x_points)
+    poly = 0
+    for i in range(n):
+        term = y_points[i]
+        for j in range(n):
+            if i != j:
+                term *= (x - x_points[j]) / (x_points[i] - x_points[j])
+        poly += term
+    return poly
+
+
+for i, N in enumerate(N_values, 1):
+    x_zeros = np.concatenate([-np.arange(1, N+1)/N, np.arange(1, N+1)/N])
+    # print(x_zeros)
+    y_zeros = np.zeros(2*N)
+
+    x_points = np.concatenate([[0], x_zeros])
+    # print(x_points)
+    y_points = np.concatenate([[1], y_zeros])
+
+    x_fine = np.linspace(-1, 1, 1000)
+    y_fine = [lagrange_interpolation(x_points, y_points, xi) for xi in x_fine]
+
+
+    plt.subplot(2, 3, i)
+    plt.plot(x_fine, y_fine)
+    plt.scatter(x_points, y_points, color='red')
+    plt.title(f'N = {N}, Degree = {2*N}')
+    plt.xlabel('x')
+    plt.ylabel(f'p_{2*N}(x)')
+    plt.grid(True)
+
+plt.tight_layout()
+plt.show()
+
+
+# Q2 - Integration
+import numpy as np
+
+def f(x):
+    return (1 / np.sqrt(2 * np.pi)) * np.exp(-x**2 / 2)
+
+# Trapezoidal rule
+def trapezoidal(f, a, b, n):
+    x = np.linspace(a, b, n)
+    y = f(x)
+    h = (b - a) / (n - 1)
+    return h * (0.5 * y[0] + np.sum(y[1:-1]) + 0.5 * y[-1])
+
+# Simpson's rule
+def simpsons(f, a, b, n):
+    if n % 2 == 0: 
+      n += 1
+    x = np.linspace(a, b, n)
+    y = f(x)
+    h = (b - a) / (n - 1)
+    return h/3 * (y[0] + 4 * np.sum(y[1:-1:2]) + 2 * np.sum(y[2:-2:2]) + y[-1])
+
+a, b = -10, 2
+true_val = 0.977249868051821
+
+n1 = 2001
+trap_2001 = trapezoidal(f, a, b, n1)
+simp_2001 = simpsons(f, a, b, n1)
+
+n2 = 4001
+trap_4001 = trapezoidal(f, a, b, n2)
+simp_4001 = simpsons(f, a, b, n2)
+
+print("2001 points:")
+print(f"Trapezoidal: {trap_2001:.15f}, Error: {abs(trap_2001 - true_val):.2e}")
+print(f"Simpson's  : {simp_2001:.15f}, Error: {abs(simp_2001 - true_val):.2e}")
+
+print("\n4001 points:")
+print(f"Trapezoidal: {trap_4001:.15f}, Error: {abs(trap_4001 - true_val):.2e}")
+print(f"Simpson's  : {simp_4001:.15f}, Error: {abs(simp_4001 - true_val):.2e}")
+
+print("\nSimpson’s rule converges faster than trapezoidal as seen from the smaller error even at lower n.")
+
+
+# Q3
+import numpy as np
+from scipy.integrate import simpson
+
+def f(x):
+    return np.sin(x)
+
+# Trapezoidal Rule
+def trapezoidal_rule(f, a, b, n):
+    h = (b - a) / n
+    x = np.linspace(a, b, n + 1)
+    y = f(x)
+    return h * (0.5 * y[0] + np.sum(y[1:-1]) + 0.5 * y[-1])
+
+# Simpson's Rule
+def simpsons_rule(f, a, b, n):
+    if n % 2 != 0:
+        raise ValueError("Simpson's rule requires an even number of subintervals")
+    x = np.linspace(a, b, n + 1)
+    y = f(x)
+    return simpson(y, x)
+
+# Exact value
+exact_value = 2.0
+
+# (a)
+a = 0
+b = np.pi
+n = 20
+
+trap_result = trapezoidal_rule(f, a, b, n)
+simp_result = simpsons_rule(f, a, b, n)
+
+print("(a) Integration of sin(x) from 0 to pi:")
+print(f"    Composite Trapezoidal Rule (n={n}): {trap_result:.15f}")
+print(f"    Composite Simpson's Rule   (n={n}): {simp_result:.15f}")
+
+# (b)
+trap_error = abs(trap_result - exact_value)
+simp_error = abs(simp_result - exact_value)
+
+print("\n(b) Comparison with Exact Value (2) and Absolute Errors:")
+print(f"    Trapezoidal Absolute Error: {trap_error:.3e}")
+print(f"    Simpson's Absolute Error:  {simp_error:.3e}")
+
+
+# Q4
+import numpy as np
+from scipy.special import erf
+
+def f(x):
+    return np.exp(-x**2)
+
+# Trapezoidal Rule Function
+def trapezoidal_rule(f, a, b, n):
+    h = (b - a) / n
+    x = np.linspace(a, b, n + 1)
+    y = f(x)
+    return h * (0.5 * y[0] + np.sum(y[1:-1]) + 0.5 * y[-1])
+
+# Exact value using error function
+true_value = 0.5 * np.sqrt(np.pi) * erf(1)
+
+# (a)
+a = 0
+b = 1
+
+n1 = 100
+n2 = 200
+
+I_100 = trapezoidal_rule(f, a, b, n1)
+I_200 = trapezoidal_rule(f, a, b, n2)
+
+print("(a) Integral of e^(-x^2) over [0,1] using Trapezoidal Rule:")
+print(f"    Using {n1} subintervals: {I_100:.15f}")
+print(f"    Using {n2} subintervals: {I_200:.15f}")
+
+# (b)
+E_100 = abs(I_100 - true_value)
+E_200 = abs(I_200 - true_value)
+
+order = np.log2(E_100 / E_200)
+
+print("\n(b) Error and Estimated Order of Accuracy:")
+print(f"    True Value:   {true_value:.15f}")
+print(f"    Absolute Error (100):    {E_100:.3e}")
+print(f"    Absolute Error (200):    {E_200:.3e}")
+print(f"    Estimated Order: {order:.5f}")
+

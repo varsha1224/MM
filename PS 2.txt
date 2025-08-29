@@ -1,0 +1,560 @@
+# PS 2: INTERPOLATION - forward, backward, Lagrange, spline
+
+# Q1
+# 1st question
+
+import matplotlib.pyplot as plt
+import numpy as np
+
+n = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16]
+an = [3, 6, 11, 21, 32, 47, 65, 87, 112, 110, 171, 204, 241, 282, 325, 376]
+delta_an = [3]
+for i in range(1,16):
+    delta_an.append(an[i] - an[i-1])
+print("Delta an : ", delta_an)
+
+plt.plot(n, delta_an)
+plt.title("Delta an vs n")
+plt.xlabel("n")
+plt.ylabel("Delta an")
+plt.show()
+
+plt.plot(n, an)
+plt.title("n vs an")
+plt.xlabel("n")
+plt.ylabel("an")
+plt.show()
+
+'''Does the graph reasonably approximate linear relationship'''
+
+#The graph reasonably approximate linear relationship
+
+quad_equation = np.polyfit(n, an, 2)
+print("Coefficient of the equation : ", quad_equation)
+a = quad_equation[0]
+b = quad_equation[1]
+c = quad_equation[2]
+
+predicted_an = []
+for i in range(16):
+    predicted_an.append(a*n[i]*n[i] + b*n[i] + c)
+
+plt.plot(n, predicted_an)
+plt.title("Predicted an vs n")
+plt.xlabel("n")
+plt.ylabel("Predicted an")
+plt.show()
+
+errors = [an[i] - predicted_an[i] for i in range(16)]
+
+plt.plot(n, errors)
+plt.title("Errors in predicted an vs n")
+plt.xlabel("n")
+plt.ylabel("Errors")
+plt.show()
+
+
+# Q2
+# 2nd question
+
+import matplotlib.pyplot as plt
+import numpy as np
+import random
+from collections import defaultdict
+import scipy.stats as stats
+
+def forward_difference_table(y):
+    n = len(y)
+    diff_table = [y]
+    for i in range(1, n):
+        prev = diff_table[-1]
+        diff = [prev[j + 1] - prev[j] for j in range(len(prev) - 1)]
+        diff_table.append(diff)
+    return diff_table
+
+def newton_forward_interpolation(x_points, y_points, x, forward_diff_table):
+    h = x_points[1] - x_points[0]
+    u = (x - x_points[0]) / h
+
+    result = forward_diff_table[0][0]
+    u_term = 1
+
+    for i in range(1, len(forward_diff_table)):
+        u_term *= (u - (i - 1)) / i
+        result += forward_diff_table[i][0] * u_term
+
+    return result
+
+def calculate_strech_value(force, stretch, x_targets):
+
+    diff_table = forward_difference_table(stretch)
+
+    print("Forward Divided difference table")
+    n = len(stretch)
+    for i in range(n):
+        row_output = []
+        for j in range(n - i):
+            row_output.append(diff_table[j][i])
+        print(row_output)
+
+    x_range = np.linspace(min(force), max(force), 100)
+    y_interpolated = [newton_forward_interpolation(force, stretch, x, diff_table) for x in x_range]
+
+    y_targets = [newton_forward_interpolation(force, stretch, x, diff_table) for x in x_targets]
+
+    for i in range(len(x_targets)):
+        print("Force : ", x_targets[i], "Strech :", y_targets[i])
+
+    plt.plot(force, stretch, 'o', label='Original Data')
+    plt.plot(x_range, y_interpolated, '-', label='Interpolating Polynomial')
+    plt.scatter(x_targets, y_targets, color='red', label='Interpolation Points')
+    plt.xlabel('Force')
+    plt.ylabel('Stretch')
+    plt.title('Newton Forward Interpolation')
+    plt.legend()
+    plt.grid(True)
+    plt.show()
+
+    return diff_table
+
+def calculate_error(y_actual, y_targets, x_targets):
+    error = [y_actual[i] - y_targets[i] for i in range(len(y_targets))]
+    print("Errors :: ", error)
+    plt.plot(x_targets, error, 'o', label='Error')
+    plt.xlabel('Force')
+    plt.ylabel('Error')
+    plt.title('Force vs Error')
+    plt.legend()
+    plt.grid(True)
+    plt.show()
+    return error
+
+
+def ttest(errors):
+    t_stat, p_value = stats.ttest_1samp(errors, 0)
+
+    print("Performing one-sample t-test (H₀: Mean error = 0)")
+    print(f"T-statistic: {t_stat:.4f}")
+    print(f"P-value: {p_value:.4f}")
+
+    if p_value < 0.05:
+        print("Conclusion: Reject the null hypothesis at the 5% significance level.")
+        print("Interpretation: The mean error is significantly different from zero — indicates a poor model fit.")
+    else:
+        print("Conclusion: Fail to reject the null hypothesis at the 5% significance level.")
+        print("Interpretation: The mean error is not significantly different from zero — indicates a good model fit.")
+
+
+force = [10, 20, 30, 40, 50, 60, 70, 80, 90]
+stretch = [19, 57, 94, 134, 173, 216, 256, 297, 343]
+x_targets = [15, 17, 85]
+total_x = force.copy()
+total_x.extend(x_targets)
+
+diff_table = calculate_strech_value(force, stretch, x_targets)
+
+errors = []
+coeffs_linear = np.polyfit(force, stretch, 1)
+m_linear = coeffs_linear[0]
+c_linear = coeffs_linear[1]
+k_approx = 1 / m_linear
+print("Approximate value of k :: ", k_approx)
+for x in x_targets:
+    stretch.append(x//k_approx )
+y_predicted = []
+for x in total_x:
+    y_predicted.append(newton_forward_interpolation(force, stretch, x, diff_table))
+print("Strech values :: ", stretch)
+print("Y predicted :: ", y_predicted)
+errors = calculate_error(stretch, y_predicted, total_x)
+print("\n--------------------------------------------------------------------------\n")
+ttest(errors)
+print("\n--------------------------------------------------------------------------\n")
+
+k_values = []
+while len(k_values) < 5:
+    a = random.uniform(1,5)
+    if a not in k_values:
+        k_values.append(a)
+
+for i in k_values:
+    y_values = []
+    errors = []
+    for x in force:
+        y_values.append(x/i)
+    print("K value :: ", i)
+    diff_table = calculate_strech_value(force, y_values, x_targets)
+    print("\n--------------------------------------------------------------------------\n")
+    for x in x_targets:
+        y_values.append(x/i)
+    y_predicted = []
+    for x in total_x:
+        y_predicted.append(newton_forward_interpolation(force, y_values, x, diff_table))
+    print("Y values :: ", y_values)
+    print("Y predicted :: ", y_predicted)
+    errors = calculate_error(y_values, y_predicted, total_x)
+    print("\n--------------------------------------------------------------------------\n")
+    ttest(errors)
+    print("\n--------------------------------------------------------------------------\n")
+
+# Q3
+# 3rd question
+
+def emittance_function(t):
+  return 0.02424 * (t / 303.16)**1.27591
+
+def newton_divided_difference(x_points, y_points):
+    n = len(x_points)
+    divided_diff = [list(y_points)]
+
+    for k in range(1, n):
+        row = []
+        for i in range(n - k):
+            diff = (divided_diff[k - 1][i + 1] - divided_diff[k - 1][i]) / (x_points[i + k] - x_points[i])
+            row.append(diff)
+        divided_diff.append(row)
+
+    coefficients = [divided_diff[k][0] for k in range(n)]
+    return coefficients
+
+def evaluate_newton_polynomial(coefficients, x_points, x):
+    n = len(x_points)
+    result = coefficients[0]
+    product_term = 1.0
+
+    for i in range(1, n):
+        product_term *= (x - x_points[i - 1])
+        result += coefficients[i] * product_term
+
+    return result
+
+temperature = [300, 400, 500, 600, 700, 800, 900, 1000, 1100, 1200, 1300, 1400, 1500, 1600, 1700, 1800, 1900, 2000]
+emittance = [0.024, 0.035, 0.046, 0.058, 0.067, 0.083, 0.097, 0.111, 0.125, 0.140, 0.155, 0.170, 0.186, 0.202, 0.219, 0.235, 0.252, 0.269]
+
+newton_coeffs = newton_divided_difference(temperature, emittance)
+print("Newton Coefficients:", newton_coeffs)
+
+temperature_range = np.linspace(min(temperature), max(temperature), 100)
+
+original_emittance_values = [emittance_function(t) for t in temperature_range]
+
+interpolated_emittance_values = [evaluate_newton_polynomial(newton_coeffs, temperature, t) for t in temperature_range]
+
+print("Original Emittance Values:", original_emittance_values)
+print("Interpolated Emittance Values:", interpolated_emittance_values)
+
+
+plt.plot(temperature_range, original_emittance_values, label='Original Function')
+plt.plot(temperature_range, interpolated_emittance_values, label='Interpolating Polynomial', linestyle='--')
+
+plt.title("Comparison of Original Emittance Function and Interpolating Polynomial")
+plt.xlabel("Temperature")
+plt.ylabel("Emittance")
+plt.legend()
+plt.grid(True)
+plt.show()
+
+emittance_at_0_5_newton = evaluate_newton_polynomial(newton_coeffs, temperature, 0.5)
+emittance_at_3_newton = evaluate_newton_polynomial(newton_coeffs, temperature, 3.0)
+
+print("Emittance at T = 0.5 using Newton's Divided Difference: ", emittance_at_0_5_newton)
+print("Emittance at T = 3.0 using Newton's Divided Difference: ", emittance_at_3_newton)
+
+def lagrange_interpolation(x_points, y_points, x):
+    n = len(x_points)
+    result = 0.0
+
+    for i in range(n):
+        term = y_points[i]
+        for j in range(n):
+            if i != j:
+                term *= (x - x_points[j]) / (x_points[i] - x_points[j])
+        result += term
+    return result
+
+temperature_range = np.linspace(min(temperature), max(temperature), 100)
+
+original_emittance_values = [emittance_function(t) for t in temperature_range]
+
+interpolated_emittance_values = [lagrange_interpolation(temperature, emittance, t) for t in temperature_range]
+
+print("Original Emittance Values:", original_emittance_values)
+print("Interpolated Emittance Values:", interpolated_emittance_values)
+
+
+plt.plot(temperature_range, original_emittance_values, label='Original Function')
+plt.plot(temperature_range, interpolated_emittance_values, label='Interpolating Polynomial', linestyle='--')
+
+plt.title("Comparison of Original Emittance Function and Interpolating Polynomial")
+plt.xlabel("Temperature")
+plt.ylabel("Emittance")
+plt.legend()
+plt.grid(True)
+plt.show()
+
+emittance_at_0_5_lagrange = lagrange_interpolation(temperature, emittance, 0.5)
+emittance_at_3_lagrange = lagrange_interpolation(temperature, emittance, 3.0)
+
+print("Emittance at T = 0.5 using Lagrange's Interpolation: ", emittance_at_0_5_lagrange)
+print("Emittance at T = 3.0 using Lagrange's Interpolation: ", emittance_at_3_lagrange)
+
+# Q4
+# 4th question
+
+import numpy as np
+import matplotlib.pyplot as plt
+
+x = np.array([2, 2.5, 3, 3.5, 4])
+y = np.array([1, np.sqrt(2) - 1, -1, np.sqrt(2) - 1, 1])
+
+def true_function(x):
+    return 2 * np.sqrt(np.abs(x - 3)) - 1
+
+x_fine = np.linspace(2, 4, 200)
+y_true = true_function(x_fine)
+
+def linear_spline(x_points, y_points, x):
+    n = len(x_points)
+    for i in range(n - 1):
+        if x_points[i] <= x <= x_points[i + 1]:
+            slope = (y_points[i + 1] - y_points[i]) / (x_points[i + 1] - x_points[i])
+            return y_points[i] + slope * (x - x_points[i])
+    if x < x_points[0]:
+        slope = (y_points[1] - y_points[0]) / (x_points[1] - x_points[0])
+        return y_points[0] + slope * (x - x_points[0])
+    elif x > x_points[-1]:
+        slope = (y_points[-1] - y_points[-2]) / (x_points[-1] - x_points[-2])
+        return y_points[-1] + slope * (x - x_points[-1])
+    return -1
+
+y_linear = np.array([linear_spline(x, y, xi) for xi in x_fine])
+
+def get_cubic_spline_coefficients(x_points, y_points):
+    n = len(x_points)
+    h = [x_points[i + 1] - x_points[i] for i in range(n - 1)]
+    b = [y_points[i + 1] - y_points[i] for i in range(n - 1)]
+    A = np.zeros((n, n))
+    v = np.zeros(n)
+    A[0, 0] = 1
+    A[n - 1, n - 1] = 1
+
+    for i in range(1, n - 1):
+        A[i, i - 1] = h[i - 1] / 6
+        A[i, i] = (h[i - 1] + h[i]) / 3
+        A[i, i + 1] = h[i] / 6
+        v[i] = (b[i] / h[i]) - (b[i - 1] / h[i - 1])
+
+    M = np.linalg.solve(A, v)
+
+    coefficients = []
+    for i in range(n - 1):
+        a = (M[i + 1] - M[i]) / (6 * h[i])
+        b_coeff = M[i] / 2
+        c = (y_points[i + 1] - y_points[i]) / h[i] - h[i] * (M[i + 1] + 2 * M[i]) / 6
+        d = y_points[i]
+        coefficients.append((a, b_coeff, c, d))
+
+    return M, coefficients
+
+def evaluate_custom_spline(coefficients, x_points, x):
+    n = len(x_points)
+    for i in range(n - 1):
+        if x_points[i] <= x <= x_points[i + 1]:
+            a, b, c, d = coefficients[i]
+            dx = x - x_points[i]
+            return a * dx**3 + b * dx**2 + c * dx + d
+    if x < x_points[0]:
+        a, b, c, d = coefficients[0]
+        dx = x - x_points[0]
+        return a * dx**3 + b * dx**2 + c * dx + d
+    elif x > x_points[-1]:
+        a, b, c, d = coefficients[-1]
+        dx = x - x_points[-2]
+        return a * dx**3 + b * dx**2 + c * dx + d
+    return -1
+
+_, cubic_coeffs = get_cubic_spline_coefficients(x, y)
+y_cubic = np.array([evaluate_custom_spline(cubic_coeffs, x, xi) for xi in x_fine])
+
+def lagrange_interpolant(x_points, y_points, x):
+    n = len(x_points)
+    result = 0.0
+    for i in range(n):
+        term = y_points[i]
+        for j in range(n):
+            if j != i:
+                term *= (x - x_points[j]) / (x_points[i] - x_points[j])
+        result += term
+    return result
+
+y_poly = np.array([lagrange_interpolant(x, y, xi) for xi in x_fine])
+
+plt.figure(figsize=(10, 6))
+plt.plot(x_fine, y_true, 'k-', label='True Function')
+plt.plot(x_fine, y_linear, 'r--', label='Linear Spline')
+plt.plot(x_fine, y_cubic, 'g-.', label='Cubic Spline')
+plt.plot(x_fine, y_poly, 'b:', label='Polynomial Interpolant')
+plt.plot(x, y, 'bo', label='Data Points')
+plt.legend()
+plt.xlabel('x')
+plt.ylabel('y')
+plt.title('Function Interpolation')
+plt.grid(True)
+plt.ylim(-1.5, 1.5)
+plt.show()
+
+x_test = 2.125
+y_true_test = true_function(x_test)
+y_linear_test = linear_spline(x, y, x_test)
+y_cubic_test = evaluate_custom_spline(cubic_coeffs, x, x_test)
+y_poly_test = lagrange_interpolant(x, y, x_test)
+
+linear_error = abs(y_true_test - y_linear_test)
+cubic_error = abs(y_true_test - y_cubic_test)
+poly_error = abs(y_true_test - y_poly_test)
+
+print(f"True value at x = 2.125: {y_true_test:.6f}")
+print(f"Linear spline error: {linear_error:.6f}")
+print(f"Cubic spline error: {cubic_error:.6f}")
+print(f"Polynomial error: {poly_error:.6f}")
+
+x_refined = np.linspace(2, 4, 9)
+y_refined = true_function(x_refined)
+_, cubic_coeffs_refined = get_cubic_spline_coefficients(x_refined, y_refined)
+y_linear_refined = np.array([linear_spline(x_refined, y_refined, xi) for xi in x_fine])
+y_cubic_refined = np.array([evaluate_custom_spline(cubic_coeffs_refined, x_refined, xi) for xi in x_fine])
+
+linear_error_refined = np.mean(abs(y_true - y_linear_refined))
+cubic_error_refined = np.mean(abs(y_true - y_cubic_refined))
+
+h = (x[1] - x[0])
+h_refined = (x_refined[1] - x_refined[0])
+linear_conv_rate = np.log(linear_error_refined / linear_error) / np.log(h_refined / h)
+cubic_conv_rate = np.log(cubic_error_refined / cubic_error) / np.log(h_refined / h)
+
+print(f"Approximate convergence rate - Linear: {linear_conv_rate:.2f}")
+print(f"Approximate convergence rate - Cubic: {cubic_conv_rate:.2f}")
+
+# Q5
+# 5th question
+
+import numpy as np
+import matplotlib.pyplot as plt
+
+def get_cubic_spline_coefficients(x_points, y_points):
+    n = len(x_points)
+    h = [x_points[i+1] - x_points[i] for i in range(n-1)]
+    b = [y_points[i+1] - y_points[i] for i in range(n-1)]
+    A = np.zeros((n, n))
+    v = np.zeros(n)
+    A[0, 0] = 1
+    A[n-1, n-1] = 1
+
+    for i in range(1, n-1):
+        A[i, i-1] = h[i-1] / 6
+        A[i, i] = (h[i-1] + h[i]) / 3
+        A[i, i+1] = h[i] / 6
+        v[i] = (b[i] / h[i]) - (b[i-1] / h[i-1])
+
+    M = np.linalg.solve(A, v)
+
+    coefficients = []
+    for i in range(n-1):
+        a = (M[i+1] - M[i]) / (6 * h[i])
+        b_coeff = M[i] / 2
+        c = (y_points[i+1] - y_points[i]) / h[i] - h[i] * (M[i+1] + 2 * M[i]) / 6
+        d = y_points[i]
+        coefficients.append((a, b_coeff, c, d))
+
+    return M, coefficients
+
+
+def evaluate_custom_spline(coefficients, x_points, x):
+    n = len(x_points)
+    for i in range(n - 1):
+        if x_points[i] <= x <= x_points[i+1]:
+            a, b, c, d = coefficients[i]
+            dx = x - x_points[i]
+            return a * dx**3 + b * dx**2 + c * dx + d
+
+    if x < x_points[0]:
+        a, b, c, d = coefficients[0]
+        dx = x - x_points[0]
+        return a * dx**3 + b * dx**2 + c * dx + d
+    elif x > x_points[-1]:
+        a, b, c, d = coefficients[-1]
+        dx = x - x_points[-2]
+        return a * dx**3 + b * dx**2 + c * dx + d
+    else:
+        return -1
+
+T = [0, 8, 16, 24, 32, 40]
+o = [14.621, 11.843, 9.870, 8.418, 7.305, 6.413]
+
+M, coefficients = get_cubic_spline_coefficients(T, o)
+print("M values (Second Derivatives):", M)
+print("Cubic Spline Coefficients (a, b, c, d) for each interval:", coefficients)
+
+T_fine = np.linspace(min(T), max(T), 100)
+o_fine_custom = [evaluate_custom_spline(coefficients, T, t) for t in T_fine]
+plt.scatter(T, o, label='Original Data')
+plt.plot(T_fine, o_fine_custom, label='Cubic Spline', linestyle='--')
+plt.xlabel('T')
+plt.ylabel('o, mg/L')
+plt.title('Cubic Spline Interpolation')
+plt.legend()
+plt.grid(True)
+plt.show()
+
+# Q6
+# 6th question
+
+import numpy as np
+import matplotlib.pyplot as plt
+
+def get_interpolation_points(N):
+    points = [0]
+    y_values = [1]
+    for j in range(1, N + 1):
+        points.append(j / N)
+        points.append(-j / N)
+        y_values.append(0)
+        y_values.append(0)
+    return np.array(points), np.array(y_values)
+
+def lagrange_interpolant(x_points, y_points, x):
+    n = len(x_points)
+    result = 0.0
+    for i in range(n):
+        term = y_points[i]
+        for j in range(n):
+            if j != i:
+                if x_points[j] != x_points[i]:
+                    term *= (x - x_points[j]) / (x_points[i] - x_points[j])
+        result += term
+    return result
+
+x_fine = np.linspace(-1, 1, 200)
+Ns = [2, 4, 6, 8, 12, 20]
+
+plt.figure(figsize=(10, 6))
+for N in Ns:
+    x_points, y_points = get_interpolation_points(N)
+    y_poly = [lagrange_interpolant(x_points, y_points, xi) for xi in x_fine]
+    plt.plot(x_fine, y_poly, label=f'N = {N}')
+
+plt.plot(0, 1, 'ro')
+for N in Ns:
+    for j in range(1, N + 1):
+        plt.plot(j / N, 0, 'bo')
+        plt.plot(-j / N, 0, 'bo')
+
+plt.xlabel('x')
+plt.ylabel('p_{2N}(x)')
+plt.title('Polynomial Interpolation for Different N')
+plt.legend()
+plt.grid(True)
+plt.ylim(-1.5, 1.5)
+plt.show()
+
+print("Observation with increasing N: As the value of N grows, the polynomial p_{2N}(x) starts to display more pronounced wiggles across the interval [-1, 1]. The number of points where the polynomial crosses zero increases, aligning with 2N roots (counting multiplicity at the origin). This behavior suggests a growing instability, where the polynomial swings more intensely near the edges, a pattern often linked to challenges in fitting high-degree polynomials to evenly distributed points.")
