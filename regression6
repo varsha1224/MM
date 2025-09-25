@@ -1,0 +1,180 @@
+import pandas as pd
+import numpy as np
+import matplotlib.pyplot as plt
+from scipy.stats import t, f
+
+dataset = "path/BSE_Dataset.csv"
+df = pd.read_csv(dataset)
+
+df['Rate of Return'] = ((df['Close Price'] - df['Open Price']) / df['Open Price']) * 100
+
+# ---------- Data ----------
+df['Month_datetime'] = pd.to_datetime(df['Month'], format='%B-%Y')
+df = df.sort_values('Month_datetime').reset_index(drop=True)
+df['t'] = np.arange(1, len(df) + 1)
+
+df_train = df[df['Month_datetime'] <= '2024-12-31'].copy()
+df_test  = df[df['Month_datetime'] >  '2024-12-31'].copy()
+
+x_train = df_train['t'].values
+y_train = df_train['Rate of Return'].values
+x_test  = df_test['t'].values
+y_test  = df_test['Rate of Return'].values
+
+# ---------- Regression functions ----------
+def linear_regression(x, y):
+    n = len(x)
+    sum_x = np.sum(x)
+    sum_y = np.sum(y)
+    sum_xy = np.sum(x * y)
+    sum_x2 = np.sum(x**2)
+    b1 = (n * sum_xy - sum_x * sum_y) / (n * sum_x2 - sum_x**2)
+    b0 = np.mean(y) - b1 * np.mean(x)
+    return np.array([b0, b1])
+
+def quadratic_regression(x, y):
+    n = len(x)
+    sum_x = np.sum(x)
+    sum_y = np.sum(y)
+    sum_x2 = np.sum(x**2)
+    sum_x3 = np.sum(x**3)
+    sum_x4 = np.sum(x**4)
+    sum_xy = np.sum(x * y)
+    sum_x2y = np.sum(x**2 * y)
+
+    A = np.array([[n, sum_x, sum_x2],
+                  [sum_x, sum_x2, sum_x3],
+                  [sum_x2, sum_x3, sum_x4]])
+    B = np.array([sum_y, sum_xy, sum_x2y])
+    coeffs = np.linalg.solve(A, B)
+    return coeffs
+
+def cubic_regression(x, y):
+    n = len(x)
+    sum_x = np.sum(x)
+    sum_y = np.sum(y)
+    sum_xy = np.sum(x*y)
+    sum_x2y = np.sum(x**2*y)
+    sum_x3y = np.sum(x**3*y)
+    sum_x4y = np.sum(x**4*y)
+    sum_x2 = np.sum(x**2)
+    sum_x3 = np.sum(x**3)
+    sum_x4 = np.sum(x**4)
+    sum_x5 = np.sum(x**5)
+    sum_x6 = np.sum(x**6)
+
+    # Normal equations matrix
+    A = np.array([
+        [n,      sum_x,  sum_x2,  sum_x3],
+        [sum_x,  sum_x2, sum_x3,  sum_x4],
+        [sum_x2, sum_x3, sum_x4,  sum_x5],
+        [sum_x3, sum_x4, sum_x5,  sum_x6]
+    ])
+
+    # Right-hand side vector
+    B = np.array([sum_y, sum_xy, sum_x2y, sum_x3y])
+
+    # Solve for coefficients
+    coeffs = np.linalg.solve(A, B)
+    b0, b1, b2, b3 = coeffs
+    return b0, b1, b2, b3
+
+from scipy.stats import t, f
+
+# ---------- Statistical tests with inference ----------
+def regression_stats(x, y, coeffs, degree, alpha=0.05):
+    n = len(x)
+    k = degree + 1
+    X = np.vstack([x**i for i in range(k)]).T
+    X[:, 0] = 1
+    y_hat = X @ coeffs
+    residuals = y - y_hat
+
+    SSE = np.sum(residuals**2)
+    SST = np.sum((y - np.mean(y))**2)
+    SSR = SST - SSE
+
+    s2 = SSE / (n - k)
+    XtX_inv = np.linalg.inv(X.T @ X)
+    se = np.sqrt(np.diag(s2 * XtX_inv))
+
+    t_stats = coeffs / se
+    p_values = 2 * (1 - t.cdf(np.abs(t_stats), df=n - k))
+
+    F_stat = (SSR / (k - 1)) / (SSE / (n - k))
+    p_value_F = 1 - f.cdf(F_stat, dfn=k - 1, dfd=n - k)
+
+    # ---------- Inference ----------
+    t_inference = ["Significant" if p < alpha else "Not Significant" for p in p_values]
+    F_inference = "Significant" if p_value_F < alpha else "Not Significant"
+
+    return t_stats, p_values, t_inference, F_stat, p_value_F, F_inference
+
+
+# ---------- Fit models ----------
+b_lin = linear_regression(x_train, y_train)
+b_quad = quadratic_regression(x_train, y_train)
+b_cubic = cubic_regression(x_train, y_train)
+
+# ---------- Display regression equations ----------
+print("\n--- Regression Equations ---")
+print("Linear Regression:   Y = {:.6f} + {:.6f}*t".format(b_lin[0], b_lin[1]))
+print("Quadratic Regression: Y = {:.6f} + {:.6f}*t + {:.6f}*t^2".format(b_quad[0], b_quad[1], b_quad[2]))
+print("Cubic Regression:    Y = {:.6f} + {:.6f}*t + {:.6f}*t^2 + {:.6f}*t^3".format(b_cubic[0], b_cubic[1], b_cubic[2], b_cubic[3]))
+
+
+# ---------- Predictions ----------
+y_pred_l = b_lin[0] + b_lin[1] * x_test
+y_pred_q = b_quad[0] + b_quad[1] * x_test + b_quad[2] * x_test**2
+y_pred_c = b_cubic[0] + b_cubic[1] * x_test + b_cubic[2] * x_test**2 + b_cubic[3] * x_test**3
+
+# ---------- Significance tests ----------
+t_lin, p_lin, tinf_lin, F_lin, pF_lin, Finf_lin = regression_stats(x_train, y_train, b_lin, degree=1)
+t_quad, p_quad, tinf_quad, F_quad, pF_quad, Finf_quad = regression_stats(x_train, y_train, b_quad, degree=2)
+t_cubic, p_cubic, tinf_cubic, F_cubic, pF_cubic, Finf_cubic = regression_stats(x_train, y_train, b_cubic, degree=3)
+
+
+print("\nLinear Regression:")
+print("Coefficients t-values:", t_lin)
+print("p-values:", p_lin)
+print("Inference:", tinf_lin)
+print(f"F-statistic = {F_lin:.4f}, p-value = {pF_lin:.4f} -> Model is {Finf_lin}")
+
+print("\nQuadratic Regression:")
+print("Coefficients t-values:", t_quad)
+print("p-values:", p_quad)
+print("Inference:", tinf_quad)
+print(f"F-statistic = {F_quad:.4f}, p-value = {pF_quad:.4f} -> Model is {Finf_quad}")
+
+print("\nCubic Regression:")
+print("Coefficients t-values:", t_cubic)
+print("p-values:", p_cubic)
+print("Inference:", tinf_cubic)
+print(f"F-statistic = {F_cubic:.4f}, p-value = {pF_cubic:.4f} -> Model is {Finf_cubic}")
+
+
+# ---------- Performance metrics ----------
+def mse(y_true, y_pred):
+    return np.mean((y_true - y_pred)**2)
+
+def r2(y_true, y_pred):
+    return 1 - np.sum((y_true - np.mean(y_true))**2) / np.sum((y_true - y_pred)**2)
+
+print("\n--- Model Performance ---")
+print("Linear    : R^2 = {:.4f}, MSE = {:.4f}".format(r2(y_test, y_pred_l), mse(y_test, y_pred_l)))
+print("Quadratic : R^2 = {:.4f}, MSE = {:.4f}".format(r2(y_test, y_pred_q), mse(y_test, y_pred_q)))
+print("Cubic     : R^2 = {:.4f}, MSE = {:.4f}".format(r2(y_test, y_pred_c), mse(y_test, y_pred_c)))
+
+# ---------- Plot results ----------
+plt.figure(figsize=(12, 6))
+plt.plot(df_train['Month_datetime'], y_train, 'bo-', label="Train Actual")
+plt.plot(df_test['Month_datetime'], y_test, 'ko-', label='Actual Test Data')
+plt.plot(df_test['Month_datetime'], y_pred_l, 'r--', label='Linear Fit')
+plt.plot(df_test['Month_datetime'], y_pred_q, 'g--', label='Quadratic Fit')
+plt.plot(df_test['Month_datetime'], y_pred_c, 'm--', label='Cubic Fit')
+plt.xlabel('Date')
+plt.ylabel('Rate of Return (%)')
+plt.title('Polynomial Regression with Statistical Tests')
+plt.legend()
+plt.grid(True)
+plt.show()
