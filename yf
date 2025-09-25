@@ -1,0 +1,72 @@
+import numpy as np
+import pandas as pd
+import matplotlib.pyplot as plt
+import yfinance as yf
+
+# Stock Data
+stock = yf.download("AAPL", start="2020-01-01", end="2024-01-01", interval="1mo", auto_adjust=True)
+
+stock_q = stock['Close'].resample('QE').last()
+
+returns = (stock_q.pct_change() * 100).dropna()
+
+quarters = returns.index.to_period('Q').astype(str).to_numpy().flatten()
+returns_values = returns.to_numpy().flatten()
+
+df = pd.DataFrame({
+    'Quarter': quarters,
+    'Return': returns_values
+})
+
+# 4-quarter moving average
+ts = df['Return'].values
+moving_avg = [None, None]
+for i in range(len(ts) - 3):
+    moving_avg.append(np.mean(ts[i:i+4]))
+moving_avg.append(None)
+df['Moving Average'] = moving_avg
+
+# Centered moving average
+centered_ma = [None, None]
+for i in range(2, len(moving_avg) - 1):
+  if moving_avg[i] is not None and moving_avg[i+1] is not None:
+    centered_ma.append((moving_avg[i] + moving_avg[i+1])/2)
+  else:
+    centered_ma.append(None)
+centered_ma.append(None)
+df['Centered MA'] = centered_ma
+
+# Deseasonalization
+df['Season'] = df['Quarter'].str[-2:]  # Q1, Q2, Q3, Q4
+df['Percentage of Actual to CMA'] = df['Return'] / df['Centered MA'] * 100
+
+# Seasonal indices
+seasons = ['Q1','Q2','Q3','Q4']
+seasonal_percentages = {s: [] for s in seasons}
+for idx, row in df.iterrows():
+  if not pd.isna(row['Percentage of Actual to CMA']):
+    seasonal_percentages[row['Season']].append(row['Percentage of Actual to CMA'])
+
+# Modified seasonal indices
+modified_seasonal_percentages = {}
+for s, vals in seasonal_percentages.items():
+  if len(vals) >= 3:
+    vals_sorted = sorted(vals)
+    vals_trimmed = vals_sorted[1:-1]
+    modified_seasonal_percentages[s] = np.mean(vals_trimmed)
+  elif len(vals) > 0:
+    modified_seasonal_percentages[s] = np.mean(vals)
+
+# Adjust so sum = 400
+sum_mod = sum(modified_seasonal_percentages.values())
+adjusted_factor = 400 / sum_mod
+seasonal_indices = {s: v*adjusted_factor for s,v in modified_seasonal_percentages.items()}
+
+# Deseasonalize
+seasonal_factors = {s: idx/100 for s, idx in seasonal_indices.items()}
+df['Deseasonalized'] = [r / seasonal_factors[s] for r,s in zip(df['Return'], df['Season'])]
+
+print("\nSeasonal Indices:")
+print(seasonal_indices)
+print("\nDeseasonalized Data:")
+print(df[['Quarter','Return','Deseasonalized']])
