@@ -1,0 +1,62 @@
+import numpy as np
+import pandas as pd
+import matplotlib.pyplot as plt
+
+data = {
+  'Year': [1989, 1990, 1991, 1992, 1993, 1994, 1995],
+  'Boxes': [21.0, 19.4, 22.6, 28.2, 30.4, 24.0, 25.0]
+}
+df = pd.DataFrame(data)
+
+# (a)
+mean_year = df['Year'].mean()
+mean_boxes = df['Boxes'].mean()
+
+df['Year_diff'] = df['Year'] - mean_year
+df['Boxes_diff'] = df['Boxes'] - mean_boxes
+
+numerator = (df['Year_diff'] * df['Boxes_diff']).sum()
+denominator = (df['Year_diff']**2).sum()
+
+slope = numerator / denominator
+intercept = mean_boxes - slope * mean_year
+
+print(f"(a) Linear estimating equation: y_cap = {intercept:.4f} + {slope:.4f}x")
+
+# Calculate trend values
+df['Trend'] = intercept + slope * df['Year']
+
+# (b)
+df['Percent_of_Trend'] = (df['Boxes'] / df['Trend']) * 100
+print('(b) Percent of trend')
+print(df.head())
+
+# (c)
+df['Relative_Cyclical_Residual'] = ((df['Boxes'] - df['Trend']) / df['Trend']) * 100
+print('(c) Relative cyclical residual')
+print(df.head())
+
+# (d)
+max_percent_yr = df.loc[(df['Percent_of_Trend'] - 100).abs().idxmax(), 'Year']
+max_residual_yr = df.loc[df['Relative_Cyclical_Residual'].abs().idxmax(), 'Year']
+
+print('(d) Year with biggest fluctuation:')
+print(f'By percent of trend: {max_percent_yr}')
+print(f'By relative cyclical residual: {max_residual_yr}')
+if max_percent_yr == max_residual_yr:
+  print('It is the same year for both the measures')
+else:
+  print('It is not the same year for both the measures')
+
+print("\nDetailed Results:")
+print(df[['Year', 'Boxes', 'Trend', 'Percent_of_Trend', 'Relative_Cyclical_Residual']].round(4))
+
+plt.figure(figsize=(10, 6))
+plt.plot(df['Year'], df['Boxes'], 'bo-', label='Actual Data')
+plt.plot(df['Year'], df['Trend'], 'r--', label='Trend Line')
+plt.title('Boxes Sold with Trend Line')
+plt.xlabel('Year')
+plt.ylabel('Boxes (x 10,000)')
+plt.legend()
+plt.grid(True)
+plt.show()
