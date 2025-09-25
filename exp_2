@@ -1,0 +1,101 @@
+import numpy as np
+import pandas as pd
+import matplotlib.pyplot as plt
+from math import sqrt
+
+# Data
+yt = np.array([
+    48.7, 45.8, 46.4, 46.2, 44.0,
+    53.8, 47.6, 47.0, 47.6, 51.1,
+    49.1, 46.7, 47.8, 45.8, 45.5,
+    49.2, 54.8, 44.7, 51.1, 47.3,
+    45.3, 43.3, 44.6, 47.1, 53.4,
+    44.9, 50.5, 48.1, 45.4, 51.6,
+    50.8, 46.4, 52.3, 50.5, 53.4,
+    53.9, 52.3, 53.0, 48.6, 52.4,
+    47.9, 49.5, 44.0, 53.8, 52.5,
+    52.0, 50.6, 48.7, 51.4, 47.7
+], dtype=float)
+
+lam = 0.3
+train_n = 35
+y_train = yt[:train_n]
+y_test = yt[train_n:]
+periods = np.arange(1, len(yt) + 1)
+
+# Second-order exponential smoothing on training set
+n = len(y_train)
+y1 = np.zeros(n)
+y2 = np.zeros(n)
+yhat = np.zeros(n)
+
+y1[0] = y_train[0]
+y2[0] = y1[0]
+yhat[0] = y_train[0]
+
+for t in range(1, n):
+    y1[t] = lam * y_train[t] + (1 - lam) * y1[t - 1]
+    y2[t] = lam * y1[t] + (1 - lam) * y2[t - 1]
+    yhat[t] = 2 * y1[t] - y2[t]
+
+# Compute a_T (level) and b_T (trend) at last training point
+y1_T = y1[-1]
+y2_T = y2[-1]
+
+a_T = 2 * y1_T - y2_T
+b_T = (lam / (1 - lam)) * (y1_T - y2_T)
+
+# Forecast test set using (a_T + b_T * h)
+h_steps = np.arange(1, len(y_test) + 1)
+yhat_test = a_T + b_T * h_steps
+
+pred_df = pd.DataFrame({
+    "Period": periods[train_n:],
+    "Actual": y_test,
+    "Forecast": yhat_test,
+    "Residual": y_test - yhat_test
+})
+
+
+smooth_df = pd.DataFrame({
+    "Period": periods[:train_n],
+    "y": y_train,
+    "y(1)": y1,
+    "y(2)": y2,
+    "y_hat": yhat
+})
+
+print("\nSecond-Order Exponential Smoothing Table (Training Set):")
+print(smooth_df.to_string(index=False))
+
+# Manual one-sample t-test
+res = pred_df["Residual"].values
+n_test = len(res)
+mean_res = np.mean(res)
+sd_res = np.std(res, ddof=1)
+se_res = sd_res / sqrt(n_test)
+t_stat = mean_res / se_res if se_res > 0 else float('nan')
+
+# Results
+print("Level-Trend estimates at T=35:")
+print(f"a_T (level) = {a_T:.4f}")
+print(f"b_T (trend) = {b_T:.4f}")
+
+print("\nManual t-test on residuals (H0: mean=0):")
+print(f"t = {t_stat:.4f}")
+
+print("\nForecast Table (Test Periods):")
+print(pred_df.to_string(index=False))
+
+
+# Plot
+plt.figure(figsize=(10,4))
+plt.plot(periods[:train_n], y_train, label="Train Actual", marker="o")
+plt.plot(periods[:train_n], y1, label="First Smoother (ỹ(1))", linestyle="-")
+plt.plot(periods[:train_n], y2, label="Second Smoother (ỹ(2))", linestyle="-.")
+plt.plot(periods[:train_n], yhat, label="Train Fitted", linestyle="--")
+plt.legend()
+plt.xlabel("Period")
+plt.ylabel("y")
+plt.title("Second-Order Exponential Smoothing with Level & Trend (a_T, b_T)")
+plt.show()
