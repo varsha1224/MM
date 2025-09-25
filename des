@@ -1,0 +1,180 @@
+import numpy as np
+import pandas as pd
+import matplotlib.pyplot as plt
+
+data = {
+  'Year': [1992, 1993, 1994, 1995],
+  'Winter': [293, 246, 231, 282],
+  'Spring': [301, 252, 227, 291],
+  'Summer': [304, 259, 239, 296],
+  'Fall': [306, 265, 240, 300]
+}
+
+df = pd.DataFrame(data)
+
+quarters = []
+values = []
+for yr in df['Year']:
+  for season in ['Spring', 'Summer', 'Fall', 'Winter']:
+    quarters.append(f"{yr} {season}")
+    values.append(df[df['Year'] == yr][season].values[0])
+
+ts = pd.Series(values, index=quarters)
+
+# 4-quarter moving average
+moving_avg = [None, None]
+for i in range(len(ts) - 3):
+  moving_avg.append(sum(ts[i:i+4]) / 4)
+
+moving_avg.append(None)
+
+moving_avg_df = pd.DataFrame({
+    'Quarter': ts.index,
+    'Original Value': ts.values,
+    'Moving Average': moving_avg
+})
+
+
+centered_moving_avg = [None, None]
+for i in range(2, len(moving_avg) - 1):
+    if moving_avg[i] is not None and moving_avg[i+1] is not None:
+        centered_moving_avg.append((moving_avg[i] + moving_avg[i+1]) / 2)
+    else:
+        centered_moving_avg.append(None)
+
+centered_moving_avg.append(None)
+
+moving_avg_df['Centered Moving Average'] = centered_moving_avg
+
+# Percentage of actual to moving average
+moving_avg_df['Percentage of Actual to Moving Average'] = moving_avg_df['Original Value'] / moving_avg_df['Centered Moving Average'] * 100
+print(moving_avg_df.to_string())
+
+# Modified seasonal indices and seasonal indices
+seasonal_percentages = {'Winter': [], 'Spring': [], 'Summer': [], 'Fall': []}
+for index, row in moving_avg_df.iterrows():
+    quarter = row['Quarter']
+    percentage = row['Percentage of Actual to Moving Average']
+    if pd.notna(percentage):
+        season = quarter.split()[1]
+        seasonal_percentages[season].append(percentage)
+
+modified_seasonal_percentages = {}
+for season, values in seasonal_percentages.items():
+    if len(values) > 0:
+        # Removing highest and lowest and calculating mean of the rest
+        if len(values) >= 3:
+            sorted_values = sorted(values)
+            modified_values = sorted_values[1:-1] # Remove highest and lowest
+            modified_seasonal_percentages[season] = np.mean(modified_values)
+        else:
+             # If less than 3 values, just take the mean of existing values
+             modified_seasonal_percentages[season] = np.mean(values)
+
+# Calculate the sum of modified averages
+sum_modified_averages = sum(value for value in modified_seasonal_percentages.values() if not pd.isna(value))
+
+# Adjusting constant
+adjusted_factor = 400 / sum_modified_averages if sum_modified_averages != 0 else np.nan
+print("\nSeasonal Indices:")
+seasonal_indices = {season: avg * adjusted_factor for season, avg in modified_seasonal_percentages.items() if not pd.isna(avg)}
+for season, index in seasonal_indices.items():
+  print(f"{season}: {index:.2f}")
+
+# Modified Seasonal Index
+grand_sum = 0
+for val in modified_seasonal_percentages.values():
+  grand_sum += val
+grand_mean = grand_sum / len(modified_seasonal_percentages)
+print("\nModified Seasonal Indices:")
+modified_seasonal_indices = {season: ((grand_mean * seasonal_index) / 100) for season, seasonal_index in seasonal_indices.items()}
+for season, index in modified_seasonal_indices.items():
+  print(f"{season}: {index:.2f}")
+
+# Deseasonalize
+seasonal_factors = {season: index / 100 for season, index in seasonal_indices.items()}
+
+# Create deseasonalized series
+deseasonalized_values = []
+for quarter, value in zip(ts.index, ts.values):
+    season = quarter.split()[1]
+    if season in seasonal_factors:
+        deseasonalized_values.append(value / seasonal_factors[season])
+    else:
+        deseasonalized_values.append(np.nan)
+
+# Add to DataFrame
+moving_avg_df['Deseasonalized Value'] = deseasonalized_values
+
+print("\nDeseasonalized Data:")
+print(moving_avg_df[['Quarter', 'Original Value', 'Deseasonalized Value']].to_string())
+
+# Least Squares
+
+t = np.arange(1, len(deseasonalized_values) + 1, dtype=float)
+Y = np.array(deseasonalized_values, dtype=float)
+
+mask = ~np.isnan(Y)
+t, Y = t[mask], Y[mask]
+
+n = len(Y)
+sum_t = np.sum(t)
+sum_Y = np.sum(Y)
+sum_tY = np.sum(t * Y)
+sum_t2 = np.sum(t**2)
+
+den = n * sum_t2 - (sum_t**2)
+b = (n * sum_tY - sum_t * sum_Y) / den
+a = (sum_Y - b * sum_t) / n
+
+Y_hat = a + b * t
+Y_bar = np.mean(Y)
+SST = np.sum((Y - Y_bar)**2)
+SSE = np.sum((Y - Y_hat)**2)
+R2 = 1 - SSE / SST if SST != 0 else np.nan
+
+print("\n--- Least Squares ---")
+print(f"n = {n}")
+print(f"sigma t = {sum_t:.6f}")
+print(f"sigma Y = {sum_Y:.6f}")
+print(f"sigma Y = {sum_tY:.6f}")
+print(f"sigma t^2 = {sum_t2:.6f}")
+print(f"den = {den:.6f}")
+
+print(f"\nSlope b = {b:.6f}")
+print(f"Intercept a = {a:.6f}")
+print(f"Trend Line: Y_t = {a:.4f} + {b:.6f} * t")
+print(f"R^2 = {R2:.4f}")
+
+trend_full = np.full(len(deseasonalized_values), np.nan)
+trend_full[mask] = Y_hat
+moving_avg_df['Trend'] = trend_full
+
+# Relative Cyclic Residual
+
+relative_cyclic_residuals = []
+for actual, trend in zip(deseasonalized_values, trend_full):
+    if not np.isnan(actual) and not np.isnan(trend):
+        rcr = (actual / trend) * 100
+    else:
+        rcr = np.nan
+    relative_cyclic_residuals.append(rcr)
+
+moving_avg_df['Relative Cyclic Residual (%)'] = relative_cyclic_residuals
+
+print("\nCyclic Variation (Relative Cyclic Residuals):")
+print(moving_avg_df[['Quarter', 'Deseasonalized Value', 'Trend', 'Relative Cyclic Residual (%)']].to_string())
+
+plt.figure(figsize=(12,6))
+plt.plot(moving_avg_df['Quarter'], moving_avg_df['Original Value'], marker='o', label='Original Data')
+plt.plot(moving_avg_df['Quarter'], moving_avg_df['Deseasonalized Value'], marker='s', label='Deseasonalized Data')
+plt.plot(moving_avg_df['Quarter'], moving_avg_df['Trend'], marker='d', label='Trend (Least Squares)', linewidth=2, color='black')
+
+plt.xticks(rotation=45)
+plt.xlabel("Quarter")
+plt.ylabel("Value")
+plt.title("Original Data vs Deseasonalized Data vs Trend")
+plt.legend()
+plt.grid(True)
+plt.tight_layout()
+plt.show()
