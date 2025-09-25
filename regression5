@@ -1,0 +1,96 @@
+import numpy as np
+import random
+import matplotlib.pyplot as plt
+
+# Stock data
+np.random.seed(42)
+days = sorted(random.sample(range(1, 367), 150))
+days = np.array(days, dtype=float)
+
+opening = np.random.uniform(100, 200, len(days))
+closing = opening + np.random.uniform(-10, 10, len(days))
+returns = (closing - opening) * 100 / opening
+
+n = len(days)
+
+# Linear Regression (Y = a + bt)
+sum_t = np.sum(days)
+sum_Y = np.sum(returns)
+sum_tY = np.sum(days * returns)
+sum_t2 = np.sum(days**2)
+
+b_lin = (n * sum_tY - sum_t * sum_Y) / (n * sum_t2 - sum_t**2)
+a_lin = (sum_Y - b_lin * sum_t) / n
+Y_hat_lin = a_lin + b_lin * days
+errors_lin = returns - Y_hat_lin
+
+# Quadratic Regression (Y = a + bt + ct^2)
+sum_t3 = np.sum(days**3)
+sum_t4 = np.sum(days**4)
+sum_t2Y = np.sum((days**2) * returns)
+
+A_quad = np.array([[n, sum_t, sum_t2],
+                   [sum_t, sum_t2, sum_t3],
+                   [sum_t2, sum_t3, sum_t4]])
+B_quad = np.array([sum_Y, sum_tY, sum_t2Y])
+
+a_quad, b_quad, c_quad = np.linalg.solve(A_quad, B_quad)
+Y_hat_quad = a_quad + b_quad * days + c_quad * days**2
+errors_quad = returns - Y_hat_quad
+
+# Cubic Regression (Y = a + bt + ct^2 + dt^3)
+sum_t5 = np.sum(days**5)
+sum_t6 = np.sum(days**6)
+sum_t3Y = np.sum((days**3) * returns)
+
+A_cubic = np.array([[n, sum_t, sum_t2, sum_t3],
+                    [sum_t, sum_t2, sum_t3, sum_t4],
+                    [sum_t2, sum_t3, sum_t4, sum_t5],
+                    [sum_t3, sum_t4, sum_t5, sum_t6]])
+B_cubic = np.array([sum_Y, sum_tY, sum_t2Y, sum_t3Y])
+
+a_cubic, b_cubic, c_cubic, d_cubic = np.linalg.solve(A_cubic, B_cubic)
+Y_hat_cubic = a_cubic + b_cubic * days + c_cubic * days**2 + d_cubic * days**3
+errors_cubic = returns - Y_hat_cubic
+
+def r2(y, y_hat):
+  return 1 - np.sum((y - y_hat)**2) / np.sum((y - np.mean(y))**2)
+
+R2_lin = r2(returns, Y_hat_lin)
+R2_quad = r2(returns, Y_hat_quad)
+R2_cubic = r2(returns, Y_hat_cubic)
+
+print("Linear Regression:   Y = {:.3f} + {:.5f}*t".format(a_lin, b_lin))
+print("Quadratic Regression:Y = {:.3f} + {:.5f}*t + {:.8f}*t^2".format(a_quad, b_quad, c_quad))
+print("Cubic Regression:    Y = {:.3f} + {:.5f}*t + {:.8f}*t^2 + {:.10f}*t^3".format(a_cubic, b_cubic, c_cubic, d_cubic))
+print("\nR^2 Values:")
+print("Linear   :", R2_lin)
+print("Quadratic:", R2_quad)
+print("Cubic    :", R2_cubic)
+
+# Error Analysis
+def mse(y, y_hat):
+  return np.mean((y - y_hat)**2)
+
+print("\nError Analysis (MSE):")
+print("Linear   :", mse(returns, Y_hat_lin))
+print("Quadratic:", mse(returns, Y_hat_quad))
+print("Cubic    :", mse(returns, Y_hat_cubic))
+
+plt.figure(figsize=(12,6))
+plt.scatter(days, returns, label="Actual Returns", color="blue")
+plt.plot(days, Y_hat_lin, color="red", label="Linear Fit")
+plt.plot(days, Y_hat_quad, color="green", label="Quadratic Fit")
+plt.plot(days, Y_hat_cubic, color="purple", label="Cubic Fit")
+plt.xlabel("Day of Year")
+plt.ylabel("Rate of Return (%)")
+plt.title("Stock Returns Regression Fits")
+plt.legend()
+plt.grid(True)
+plt.show()
+
+print("\nRegression on Errors:")
+
+print("Linear fit errors - Mean:", np.mean(errors_lin))
+print("Quadratic fit errors - Mean:", np.mean(errors_quad))
+print("Cubic fit errors - Mean:", np.mean(errors_cubic))
