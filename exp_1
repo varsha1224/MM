@@ -1,0 +1,54 @@
+#3 simple exponential smoothing -  y0 = y1
+
+import pandas as pd
+import numpy as np
+import matplotlib.pyplot as plt
+from math import sqrt
+
+periods = np.array([1, 2, 3, 4, 5, 6, 7, 8, 9, 10])
+yt = np.array([np.random.uniform(0, 1) for _ in range(10)])
+
+def exponential_smoothing(yt, lambda_, y1):
+    smoothed = np.zeros(len(yt))
+    smoothed[0] = y1
+    for t in range(1, len(yt)):
+        smoothed[t] = lambda_ * yt[t] + (1 - lambda_) * smoothed[t - 1]
+    return smoothed
+
+for i in range(10):
+  lambda_=  np.random.uniform(0, 1)
+  smoothed = exponential_smoothing(yt, lambda_, yt[0])
+
+  data = {
+      'Period': periods,
+      'Original': yt,
+      'Smoothed': smoothed,
+      'Residual': yt - smoothed
+  }
+  df = pd.DataFrame(data)
+  print(df)
+
+  # --- Manual t-test on residuals ---
+  res = df['Residual'].values
+  n = len(res)
+  mean_res = np.mean(res)
+  sd_res = np.std(res, ddof=1)
+  se_res = sd_res / sqrt(n)
+  t_stat = mean_res / se_res if se_res > 0 else float('nan')
+
+  print(f"\nλ = {lambda_:.3f}")
+  print(f"Residual mean = {mean_res:.4f}")
+  print(f"t-stat = {t_stat:.4f}, df = {n-1}")
+  print("-" * 40)
+
+
+  plt.plot(periods, yt, label='Original Data', marker='o', color='black')
+  plt.plot(periods, smoothed, label=f'Smoothed at lambda={lambda_}', marker='o', color='blue')
+  plt.xlabel('Period')
+  plt.ylabel('yt')
+  plt.title('Original vs Smoothed Data')
+  plt.legend()
+  plt.grid(True)
+  plt.xticks(periods)
+  plt.tight_layout()
+  plt.show()
