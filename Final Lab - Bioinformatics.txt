@@ -1,0 +1,94 @@
+# NEEDLEMAN-WUNSCH (Global Alignment)
+
+import matplotlib.pyplot as plt
+import numpy as np
+import pandas as pd
+
+def needleman_wunsch(seq1, seq2, match=1, mismatch=-1, gap=-2):
+    """
+    Global alignment (Needleman-Wunsch)
+    """
+    n, m = len(seq1), len(seq2)
+    T = [[0] * (n + 1) for _ in range(m + 1)]  # rows=seq2, cols=seq1
+
+    # Initialize first row/column
+    for i in range(m + 1):
+        T[i][0] = i * gap
+    for j in range(n + 1):
+        T[0][j] = j * gap
+
+    # Fill matrix
+    for i in range(1, m + 1):
+        for j in range(1, n + 1):
+            sigma = match if seq1[j-1] == seq2[i-1] else mismatch
+            T[i][j] = max(
+                T[i-1][j-1] + sigma,  # diagonal
+                T[i-1][j] + gap,      # up
+                T[i][j-1] + gap       # left
+            )
+
+    # Traceback
+    aligned1, aligned2 = "", ""
+    i, j = m, n
+    path = [(i, j)]
+
+    while i > 0 or j > 0:
+        sigma = match if i > 0 and j > 0 and seq1[j-1] == seq2[i-1] else mismatch
+        if i > 0 and j > 0 and T[i][j] == T[i-1][j-1] + (match if seq1[j-1] == seq2[i-1] else mismatch):
+            aligned1, aligned2 = seq1[j-1] + aligned1, seq2[i-1] + aligned2
+            i, j = i - 1, j - 1
+        elif i > 0 and T[i][j] == T[i-1][j] + gap:
+            aligned1, aligned2 = "-" + aligned1, seq2[i-1] + aligned2
+            i -= 1
+        else:
+            aligned1, aligned2 = seq1[j-1] + aligned1, "-" + aligned2
+            j -= 1
+        path.append((i, j))
+
+    path = np.array(path)
+    return aligned1, aligned2, T, path
+
+# Example usage
+seq1, seq2 = "AGTCG", "ATCG"
+a1, a2, T, path = needleman_wunsch(seq1, seq2)
+
+# --- Print alignment ---
+score = T[len(seq2)][len(seq1)]
+print("\n" + "="*60)
+print("  NEEDLEMAN-WUNSCH GLOBAL SEQUENCE ALIGNMENT")
+print("="*60)
+print(f"\nSequence 1: {seq1}\nSequence 2: {seq2}")
+print(f"\nAligned Sequence 1: {a1}\nAligned Sequence 2: {a2}\nAlignment Score: {score}")
+
+line = "".join("|" if a1[i]==a2[i] else " " if "-" in (a1[i],a2[i]) else "." for i in range(len(a1)))
+print("\nAlignment:\n" + a1 + "\n" + line + "\n" + a2)
+
+# --- Print DP Matrix in 2D Table Format ---
+df = pd.DataFrame(T,
+                  index=["-"] + list(seq2),
+                  columns=["-"] + list(seq1))
+print("\n" + "="*60)
+print("  Needleman-Wunsch Dynamic Programming Matrix")
+print("="*60)
+print(df.to_string(index=True, justify='center'))
+print("="*60)
+
+# --- Visualization ---
+plt.figure(figsize=(8, 6))
+T_array = np.array(T)
+plt.imshow(T_array, cmap='Blues', origin='upper')
+plt.colorbar(label='Score')
+
+# Add sequence labels
+plt.xticks(np.arange(len(seq1)+1), ['-'] + list(seq1))
+plt.yticks(np.arange(len(seq2)+1), ['-'] + list(seq2))
+
+# Overlay traceback path
+plt.plot(path[:,1], path[:,0], color='red', linewidth=2, marker='o')
+plt.title("Needleman-Wunsch Alignment Matrix")
+plt.xlabel("Sequence 1")
+plt.ylabel("Sequence 2")
+
+plt.gca().invert_yaxis()
+plt.tight_layout()
+plt.show()
